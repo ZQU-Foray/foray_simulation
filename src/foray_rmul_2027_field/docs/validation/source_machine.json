@@ -1,0 +1,118 @@
+{
+  "result": "PASS",
+  "installed_share": "source-machine-only path omitted for portability",
+  "scope": "scene rendering, lidar and low-speed wall contact; no navigation/SLAM",
+  "gui_requested": false,
+  "spawn": [
+    1.25,
+    6.75,
+    0.0
+  ],
+  "world_spawn_z_m": 0.001,
+  "lidar": {
+    "rays": 720,
+    "frame": "nav_lidar_link",
+    "compared": 720,
+    "median_error_m": 0.0013954601769218256,
+    "p95_error_m": 0.021478909048962623,
+    "max_error_m": 7.8842146179127806,
+    "finite_pattern_agreement": 1.0
+  },
+  "pointcloud_bytes": 184320,
+  "robot_camera": {
+    "width": 640,
+    "height": 480,
+    "encoding": "rgb8",
+    "stddev": 24.551785356382624,
+    "path": "source-machine-only; see previews/ (not a path on this computer)"
+  },
+  "camera_spawn_service": "data: true",
+  "top": {
+    "width": 1500,
+    "height": 1000,
+    "encoding": "rgb8",
+    "stddev": 34.34421082091536,
+    "path": "source-machine-only; see previews/ (not a path on this computer)"
+  },
+  "overview": {
+    "width": 1500,
+    "height": 1000,
+    "encoding": "rgb8",
+    "stddev": 25.254729933595446,
+    "path": "source-machine-only; see previews/ (not a path on this computer)"
+  },
+  "west_wall_contact": {
+    "minimum_x": 0.2990014034008487,
+    "final_x": 0.2990704663048166,
+    "expected_chassis_center_x": 0.29907080735
+  },
+  "render_resource_errors": false,
+  "revision": "STEP_R1",
+  "validation_date": "2026-10-16 Asia/Shanghai",
+  "static_tests_passed": 40,
+  "geometry_source_sha256": "7d47c1b6a6a0253a732e46cb122bb84410b11d5134bcb5658104299db4a48ca4",
+  "sdf_validation": "PASS with SDF_PATH configured",
+  "native_gui_check": {
+    "result": "PASS",
+    "installed_share": "source-machine-only path omitted for portability",
+    "scope": "scene rendering, lidar and low-speed wall contact; no navigation/SLAM",
+    "gui_requested": true,
+    "world": "rmul_2027_native",
+    "spawn": [
+      1.25,
+      6.75,
+      0.0
+    ],
+    "world_spawn_z_m": 0.001,
+    "lidar": {
+      "rays": 720,
+      "frame": "nav_lidar_link",
+      "compared": 720,
+      "median_error_m": 0.0013954601769218256,
+      "p95_error_m": 0.021478909048962623,
+      "max_error_m": 7.8842146179127806,
+      "finite_pattern_agreement": 1.0
+    },
+    "pointcloud_bytes": 184320,
+    "robot_camera": {
+      "width": 640,
+      "height": 480,
+      "encoding": "rgb8",
+      "stddev": 24.572673217823205,
+      "path": "source-machine-only; see previews/ (not a path on this computer)"
+    },
+    "camera_spawn_service": "data: true",
+    "top": {
+      "width": 1500,
+      "height": 1000,
+      "encoding": "rgb8",
+      "stddev": 44.72242368258891,
+      "path": "source-machine-only; see previews/ (not a path on this computer)"
+    },
+    "overview": {
+      "width": 1500,
+      "height": 1000,
+      "encoding": "rgb8",
+      "stddev": 31.116710614261393,
+      "path": "source-machine-only; see previews/ (not a path on this computer)"
+    },
+    "west_wall_contact": {
+      "minimum_x": 0.2990080189913355,
+      "final_x": 0.2990704663048166,
+      "expected_chassis_center_x": 0.29907080735
+    },
+    "render_resource_errors": false
+  },
+  "legacy_assets_sha256": {
+    "src/guodong_sentry_sim/worlds/depot.sdf": "c03160b20c90c5523c401817119f479aa53f84fd0f6b9eb2fca1245e5e1f3027",
+    "src/guodong_sentry_sim/worlds/depot_preview.sdf": "696f8032561e96de008b036c06b9328e551aa277a7b7b4b998743e75c29f20fa",
+    "src/guodong_sentry_sim/worlds/sentry_lab.sdf": "88a74d9f6dbc8379cc3437c78c853b3f319684ddccb80d3e47785e7eb46a3b19",
+    "src/guodong_sentry_sim/worlds/sentry_lab_preview.sdf": "d38c2e6d8f222c6cb76927129d52f54f3216ad0b439513e99c38c2af611642fb",
+    "src/guodong_sentry_sim/maps/depot/depot.pgm": "71bbac79cfc2f5db89095182bfa86b29d96b07d4ed3b7726e513ed57afffc851",
+    "src/guodong_sentry_sim/maps/depot/depot.yaml": "9749da3322f0166cd9ae97484de6fc671e3ff4705ea02e98934582afdfb89ef9",
+    "src/guodong_sentry_sim/maps/depot/LICENSE-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "src/guodong_sentry_sim/maps/depot/NOTICE.md": "2951c5fd9d6363cfc61e8269267cf69a37a4d1bd3d25440337bb7c79c4eb4353",
+    "src/guodong_sentry_sim/maps/depot/scenario.json": "ce3f19d29fde8b7a475eceb6b899bf3bbd0bbab1eefeaf1d1921abf3c3f5ac5f"
+  },
+  "evidence_scope": "Source computer, 2026-10-16. Not acceptance on the destination computer."
+}
