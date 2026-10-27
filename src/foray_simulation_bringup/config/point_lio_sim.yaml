@@ -1,0 +1,68 @@
+# point_lio 仿真参数。
+#
+# 来源：SMBU-PolarBear-Robotics-Team/pb2025_sentry_nav（dev 5f645d60）的
+#       pb2025_nav_bringup/config/simulation/nav2_params.yaml 中 `point_lio` 段，
+#       只改两处：节点名改 point_lio、输入话题指向本仓桥出的 /livox/lidar 与 /livox/imu。
+# 上游把点云当作 32 线机械式雷达处理（`lidar_type: 2`），因此前面串了
+# ign_sim_pointcloud_tool 补 `time`/`ring` 字段——仿真点云本身没有逐点时间戳。
+point_lio:
+  ros__parameters:
+    use_sim_time: True
+    use_imu_as_input: False
+    prop_at_freq_of_imu: True
+    check_satu: True
+    init_map_size: 10
+    point_filter_num: 8
+    space_down_sample: True
+    filter_size_surf: 0.2
+    filter_size_map: 0.2
+    ivox_nearby_type: 18
+    runtime_pos_log_enable: False
+
+    common:
+      lid_topic: "velodyne_points"
+      imu_topic: "livox/imu"
+      con_frame: False
+      con_frame_num: 1
+      cut_frame: False
+      cut_frame_time_interval: 0.05
+      # 仿真里雷达与 IMU 同在世界时钟下，无需标定偏置
+      time_diff_lidar_to_imu: 0.0
+
+    prior_pcd:
+      enable: False
+      init_pose: [0.0, 0.0, 0.0]
+
+    preprocess:
+      lidar_type: 2
+      scan_line: 32
+      timestamp_unit: 2
+      blind: 0.5
+
+    mapping:
+      imu_en: True
+      extrinsic_est_en: False
+      imu_time_inte: 0.005
+      lidar_time_inte: 0.1
+      satu_acc: 30.0
+      satu_gyro: 35.0
+      acc_norm: 9.81
+      lidar_meas_cov: 0.001
+      acc_cov_output: 500.0
+      gyr_cov_output: 1000.0
+      b_acc_cov: 0.0001
+      b_gyr_cov: 0.0001
+      imu_meas_acc_cov: 0.1
+      imu_meas_omg_cov: 0.1
+      gyr_cov_input: 0.01
+      acc_cov_input: 0.1
+      plane_thr: 0.1
+      match_s: 81.0
+      ivox_grid_resolution: 0.5
+      # 机器人是平放的（底盘水平），重力直接沿 -z；上游值留了 30° 俯仰
+      gravity: [0.0, 0.0, -9.81]
+      gravity_init: [0.0, 0.0, -9.81]
+      extrinsic_T: [0.0, 0.0, 0.0]
+      extrinsic_R: [1.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0,
+                    0.0, 0.0, 1.0]
