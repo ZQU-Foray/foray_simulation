@@ -1,0 +1,45 @@
+# ---- 构建产物（仓根即 colcon 空间根，build/ install/ log/ 都在仓根）----
+build/
+install/
+log/
+devel/
+*.o
+*.so
+*.a
+*.dylib
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# ---- CMake ----
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# ---- 运行期产物 ----
+*.bag
+*.db3
+*.mcap
+recordings/
+
+# ---- 本地参数覆盖与工具链（不得提交标定值；源码已迁入 src/，与这些目录不同层）----
+local/
+*.local.yaml
+
+# ---- 工具状态 ----
+.dsh/
