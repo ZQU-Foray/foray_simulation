@@ -1,0 +1,52 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Root Node Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+    Root Node Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Show Arrows: false
+      Show Axes: true
+      Show Names: false
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: livox
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+        Value: /livox/lidar
+      Size (m): 0.02
+      Style: Points
+      Color Transformer: AxisColor
+    - Class: rviz_default_plugins/Map
+      Enabled: true
+      Name: prior_map
+      Topic:
+        Value: /map
+      Alpha: 0.6
+  Enabled: true
+  Global Options:
+    Fixed Frame: map
+    Background Color: 32; 32; 32
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Scale: 20
+      Target Frame: map
+      X: 6
+      Y: 4
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400
