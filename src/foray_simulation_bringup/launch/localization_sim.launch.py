@@ -34,6 +34,11 @@ LIDAR_POSE = ("0.08", "0.0", "0.27962", "0.0", "0.0", "0.0")
 # ign_sim_pointcloud_tool 按「垂直角 → 环号」重排点，参数必须与传感器视场一致：
 # samples=32、-7°…+52°（= -0.12217304764…0.90757121104 rad）→ ang_res_y = 59/31
 ANG_RES_Y = "1.903225806451613"
+# 注意 ang_bottom 是「下沿角度的绝对值」，不是带符号角度：上游
+# point_cloud_converter.cpp:66 的换算是 row_id = (vertical_angle + ang_bottom) / ang_res_y，
+# 传 -7.0 会让 row_id 只在垂直角 ≥ +7° 时成立——正常回波全被丢，只剩 atan2(inf, inf)=+45° 的
+# 无效点（见 decision.md D11）。上游默认值与 pb2025_nav_bringup 的仿真参数都用 7.0。
+ANG_BOTTOM = "7.0"
 
 
 def _initial_pose(context, *args, **kwargs):
@@ -109,18 +114,27 @@ def generate_launch_description():
                 "pcd_topic": "/livox/lidar",
                 "n_scan": 32,
                 "horizon_scan": 1875,
-                "ang_bottom": -7.0,
+                "ang_bottom": float(ANG_BOTTOM),
                 "ang_res_y": float(ANG_RES_Y),
             }
         ],
     )
 
-    point_lio = Node(
-        package="point_lio",
-        executable="pointlio_mapping",
-        name="point_lio",
-        output="screen",
-        parameters=[point_lio_params],
+    # point_lio 用开头的 IMU 数据做重力对齐（IMU_Processing::Set_init 用 mean_acc 定 gravity），
+    # 而 gazebo 起机头几秒机器人还在沉降、IMU 上有大幅瞬时加速度；此时初始化会把重力方向
+    # 永久带偏，里程计随后指数发散（实测 53 s 时已漂到 x≈-759 m、z≈-6506 m）。
+    # 因此等仿真稳定后再启动点云里程计，同一份参数在仿真热起时漂移只有毫米级。
+    point_lio = TimerAction(
+        period=LaunchConfiguration("point_lio_delay"),
+        actions=[
+            Node(
+                package="point_lio",
+                executable="pointlio_mapping",
+                name="point_lio",
+                output="screen",
+                parameters=[point_lio_params],
+            )
+        ],
     )
 
     localization_params = [
@@ -132,6 +146,17 @@ def generate_launch_description():
             # 仿真里点云没有逐点时间戳，定位直接用原始桥出点云；里程计来自 point_lio
             "cloud_topic": "/livox/lidar",
             "odom_topic": "/aft_mapped_to_init",
+            # 以下三个时限是仿真侧的容差，不是定位算法的指标。理由（2026-10-30 实测）：
+            # 1) point_lio 里程计约 7 Hz，但消息戳取 lidar_beg_time，比 /clock 落后 0.2–0.3 s，
+            #    now-last_odom 常态顶到 0.47 s，偶发更高；
+            # 2) 软件渲染的点云在负载下会从 7 Hz 掉到 4 Hz，帧间隔 p95≈0.6 s、p99≈1.0 s、
+            #    最长 1.6 s（宿主机 12 核被其它进程占满时）；
+            # 3) foray_localization 的 LOST 是粘滞状态，只有 Relocalize 能恢复，默认的
+            #    0.5 s/0.2 s 阈值会让它被正常帧间隔误判成断流并永久 LOST
+            #    （表现为初值注入后仍 pose_valid=false）。因此按实测最坏间隔留足余量。
+            "odom_timeout_sec": 2.0,
+            "lidar_timeout_sec": 2.5,
+            "lost_timeout_sec": 5.0,
         },
     ]
 
@@ -161,7 +186,9 @@ def generate_launch_description():
             DeclareLaunchArgument("y", default_value="4.0"),
             DeclareLaunchArgument("yaw", default_value="0.0"),
             DeclareLaunchArgument("set_initial_pose", default_value="true"),
-            DeclareLaunchArgument("initial_pose_delay", default_value="12.0"),
+            DeclareLaunchArgument("initial_pose_delay", default_value="6.0"),
+            # gazebo 沉降时间：小于该值时启动 point_lio 会因 IMU 初始化带偏重力而发散。
+            DeclareLaunchArgument("point_lio_delay", default_value="4.0"),
             DeclareLaunchArgument("start_map_server", default_value="true"),
             sim_include,
             lidar_tf,

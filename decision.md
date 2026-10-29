@@ -117,3 +117,75 @@ I6–I8 留待下一轮；`localization_sim.launch.py` 与 `point_lio_sim.yaml` 
 `MODE_PLACE=1`。本仓 `scripts/set_initial_pose.py` 必须用 **MODE_GEOMETRIC**：用 MODE_PLACE
 会被拒（`place 后端默认关闭（D10）；请使用 MODE_GEOMETRIC 给定初值`），仿真里没有 place 后端。
 服务名是**绝对名** `/localization/relocalize`（不是 `/foray_localization/relocalize`）。
+
+## D11 `ign_sim_pointcloud_tool` 的 `ang_bottom` 必须传正数（下沿角绝对值）
+
+**现象**：I6 卡在「`/velodyne_points` 有数据、`point_lio` 回调也不报错，但
+`lidar_buffer` 恒空」。插桩显示回调其实每秒 8 次正常进入（`lidar_cbk #421`），
+`imu_deque` 只进不出，`/velodyne_points` 有 50015 点却**全部是 `inf`**，
+`velodyne_handler` 出来 `pl_surf=0`，于是 `sync_packages` 永远凑不齐一帧。
+
+**根因**：上游 `pb2025_sentry_nav/ign_sim_pointcloud_tool/src/point_cloud_converter.cpp`
+用 `row_id = int((vertical_angle + ang_bottom_) / ang_res_y_)` 反算线号，`ang_bottom_` 的语义是
+**下沿角的绝对值**——上游默认 `declare_parameter<float>("ang_bottom", 7.0)`，
+`pb2025_nav_bringup/config/simulation/nav2_params.yaml` 也传 `7.0`。本仓原先传 `-7.0`，
+算成 `row_id = (v - 7)/1.903`：真实回波（-7°…+52°）全被判 `continue` 丢掉，只剩
+`atan2(inf, inf) = +45°` 那些点恰好落在 `row_id=19`，输出就变成「50015 个 `inf` 点」。
+
+**决定**：`localization_sim.launch.py` 里用常量 `ANG_BOTTOM = "7.0"` 并就地注释语义，
+不再允许传负值；`ANG_RES_Y` 保持 `1.903225806451613`（与 32 线、竖直视场 59° 的换算一致）。
+
+**回执**：修后 `/velodyne_points` 恢复 `width=60000`，插桩 `velo_out pl_surf=1249`，
+`/aft_mapped_to_init` 7.3 Hz。
+
+## D12 `point_lio` 必须等 Gazebo 沉降结束再启动
+
+**现象**：D11 修好后里程计能出，但**一启动就发散**——静止机器人在 40 s 时
+`/aft_mapped_to_init` 已经跑到 `x=310 m / z=-1201 m`，53 s 到 `x=-759 m / z=-6506 m`，
+70 s 量级到了 12 km；`foray_localization` 用它做先验运动的 guess，ICP 直接 0 对应
+（插桩 `guess_t=(152449, 344122, -3070468)`），看起来像「配准坏了」，其实是先验炸了。
+
+**定位**：把同一份仿真**热着**（Gazebo 已经在跑）只重启 `point_lio`，`use_imu_as_input`
+取 `true` / `false` 都稳定在毫米级漂移 ⇒ 与 `use_imu_as_input` 无关。差别只在
+**`point_lio` 是否在 Gazebo 刚起、机器人还在落地的那几秒里启动**：它会在 `IMU_init`
+用最初若干帧 `mean_acc` 定重力方向（`IMU_Processing.cpp` 的 `Set_init` / `IMU_init`），
+沉降期的瞬时加速度把重力对齐带偏，之后积分再也不会回到正确姿态。
+
+**决定**：`localization_sim.launch.py` 用 `TimerAction` 把 `point_lio` 延后启动，
+新增 `DeclareLaunchArgument("point_lio_delay", default_value="4.0")`；仿真侧不 fork、
+不打补丁上游 `point_lio`，`config/point_lio_sim.yaml` 保持上游默认值
+（`use_imu_as_input: False`）。
+
+**回执**：默认参数干净重启，52/64/76 s 时 `/aft_mapped_to_init` 为
+`(-0.0011, 0.0007, 0.0005)` / `(-0.0016, 0.0005, 0.0007)` / `(-0.0022, 0.0001, 0.0004)`。
+
+## D13 仿真侧健康时限：`odom 2.0 s` / `lidar 2.5 s` / `lost 5.0 s`
+
+**现象**：里程计与配准都正常（插桩 `inlier=1.000 resid=0.0943 conv=1 iters=7`，
+`probe_found=1688/1688`），`/localization/state` 却一直 `pose_valid=false`，
+`age_sec` 只增不减。
+
+**根因**：`foray_localization` 的健康判定默认阈值是
+`odom_timeout_sec 0.5` / `lidar_timeout_sec 0.2` / `lost_timeout_sec 1.0`，
+而 **LOST 是粘滞状态，只能靠 Relocalize 恢复**。本仿真里两个量都贴着阈值：
+- 里程计消息戳取 `lidar_beg_time`，比 `/clock` 落后约 0.17 s，`now-last_odom` 常态顶到 0.47 s，
+  发布间隔最大 0.32 s；
+- 软件渲染的点云在宿主机 12 核被占满时只有 4 Hz，帧间隔 p50 0.20 s、p95 0.60 s、
+  p99 1.01 s、最长 1.60 s（`/tmp/gap.py` 45 s 采样：`over0.5=21`、`over1.0=2`）。
+
+于是一次正常抖动就喂进一个「断流」样本，累计过 `lost_timeout_sec` 后永久 LOST。
+
+**决定**：只在本仓 launch 的 `localization_params` 里放宽为
+`odom_timeout_sec: 2.0`、`lidar_timeout_sec: 2.5`、`lost_timeout_sec: 5.0`，并声明这是
+**仿真侧容差、不是定位算法指标**——真机口径由 `foray_localization` 自己定，本仓不改它的算法。
+配套把 `initial_pose_delay` 默认从 12 s 收到 6 s（`point_lio` 已在 4 s 起，摆位不必再等 12 s）。
+
+**回执**：默认参数 95 s 采样 4737 条状态 ⇒ `{INITIALIZING: 314, OK: 4423}`，
+**0 条 DEGRADED、0 条 LOST**；首次 OK 出现在仿真 3.78 s，位姿 `(6.0606, 4.0425)`，
+与真值 `/sim/pose_info` `(6.0, 4.0, 0.011)` 的水平误差 0.083 m，`yaw=0.012°`。
+A2 的三条判据（10 s 内 OK、位置 < 0.30 m、朝向 < 5°）全部满足。
+
+> **D9 更正**：D9 里「point_lio 的两个回调从未被调用」是**误判**——插桩证明
+> `lidar_cbk` 每秒 8 次、`imu_cbk` 每秒约 195 次都在正常进入，真正断在
+> `ign_sim_pointcloud_tool` 的 `ang_bottom` 符号（D11）。D9 的路线 1（继续查上游）
+> 已在本轮闭环，**不需要**降级到路线 2/3 的真值 odom。
