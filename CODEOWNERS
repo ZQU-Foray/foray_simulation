@@ -1,0 +1,11 @@
+# CODEOWNERS — Review 自动分派
+#
+# 本仓 owner 角色：集成（仿真与场地资产，见 foray_docs/repository_structure.md §2）
+#   §2 起步期 10 仓表尚未收录本仓（本仓 2026-10 新建，层级声明为 META）；
+#   收录与 scope 词表补齐另走 foray_docs 仓的 PR，本文件先按实际归属填「集成」。
+# 组织当前只有 算法组 / 电控组 两个 team，故先全部指向 算法组；
+# 将来若建立 架构/平台/导航/视觉/决策/集成 子 team，改为对应 team。
+#
+# 注意：被引用的 team 必须对本仓有 Write 权限，否则静默失效。
+
+*       @ZQU-Foray/算法组

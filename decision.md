@@ -189,3 +189,65 @@ A2 的三条判据（10 s 内 OK、位置 < 0.30 m、朝向 < 5°）全部满足
 > `lidar_cbk` 每秒 8 次、`imu_cbk` 每秒约 195 次都在正常进入，真正断在
 > `ign_sim_pointcloud_tool` 的 `ang_bottom` 符号（D11）。D9 的路线 1（继续查上游）
 > 已在本轮闭环，**不需要**降级到路线 2/3 的真值 odom。
+
+## D14 仓级规范文件与 CI 门禁：把组织约束变成可执行断言
+
+**背景**：`foray_docs/repository_structure.md` §10 要求每个仓含
+`CODEOWNERS` 与 `.github/workflows/ci.yml`，§6.4/§6.5/§6.6/§7.3 给了具体口径。
+本仓 2026-10 新建时只带了 AGENTS.md 与 `.foray-layer`，缺这两个文件——同一份 AGENTS.md
+（md5 `b4f2d108…`）在 interfaces/localization/navigation/sim 四个仓里逐字相同，
+但只有本仓没有任何门禁去执行它，等于规矩只写在墙上。
+
+**决定**：
+
+1. `CODEOWNERS` 放仓根（§7.3 明确组织 `.github` 里那份不生效），正文与兄弟仓一致
+   `* @ZQU-Foray/算法组`；owner 角色先记「集成」，因 §2 的 10 仓表尚未收录本仓
+   （收录另走 `foray_docs` 的 PR）。
+2. `.clang-format` 直接取 interfaces/platform 的 canonical 文件
+   （md5 `631c338f79fd5d3fb2cd729a9576fdd2`）——本仓当前无 C/C++，但 tree.md 已声明它存在，
+   且 2 空格回退是 clang-format 的默认陷阱，先放好过等有代码了再补。
+3. `pyproject.toml` 只声明 `[tool.ruff] target-version = "py310"`，与 humble 的 Python 对齐。
+4. `.github/workflows/ci.yml` 从组织模板裁剪为 7 个作业：`dir-layout` · `file-hygiene` ·
+   `doc-sync` · `layer-check` · `lint-python` · `lint-c`（无 C/C++ 时自动跳过） · `build-ros2`。
+   门禁实现放 `scripts/ci/`，只用标准库，本地与 CI 跑同一份代码。
+
+**刻意不引入的三个作业**（照抄他仓会让它们恒跳过，形成「假绿灯」）：
+
+- `param-contract`：本仓不发布 msg/srv/action，参数清单在 README §4；
+- `contract-lock`：同上，没有接口契约面；
+- `gate-selftest`：门禁自检需要注入缺陷的沙箱，本仓先立门禁，自检留作 D15 的欠账。
+
+**代价（一次性）**：现有 14 个 `.py` 按 black 重排、ruff 修 27 项（其中 5 项手工：
+`dll` 未用变量改 `_dll_handle`、`subprocess.run` 补 `check=False`、顶层兜底 `except Exception`
+加 `noqa: BLE001` 并注明理由、`dict()` 改字面量、`int(round(x))` 去多余 `int()`）；
+5 个 CAD/STEP 导出 JSON、`model.config`、两个 SDF 的行尾由 CRLF 统一为 LF，两个 SDF 补末尾换行。
+素材只动行尾与末尾换行：JSON 逐个 `json.loads`、XML 逐个 `minidom.parse` 复验通过。
+
+**回执**：`ruff check .` → `All checks passed!`；`black --check .` → `17 files would be left unchanged`；
+`python3 scripts/ci/check_style.py` → 通过；`check_tree_doc.py` → 「91 个文件、30 个目录与仓库双向一致」；
+`check_layer.py` → 「layer=META，depends_on_layers=[]」。
+
+## D15 CI 不跑整链仿真；门禁自检留作欠账
+
+**决定**：`build-ros2` 作业只做 `colcon build` + `ros2 pkg executables` + `launch --show-args` +
+`colcon test`，**不在 GitHub runner 上起 Gazebo**。
+
+**理由**：
+- 本仓两个包都是 `project(... NONE)` 的纯资源/装配包，构建期不需要上游运行时；
+  `point_lio` / `ign_sim_pointcloud_tool` / `foray_localization_ros` 等都是 `exec_depend`，
+  rosdep 用 `-r` 跳过即可。
+- 整链验收（A0–A7）依赖软件渲染的 Gazebo，帧率随宿主机负载在 4–7 Hz 之间漂
+  （见 D13 的实测），在共享 runner 上既不稳也不快；它已经由 `docker/` 镜像 + 本地容器回归覆盖。
+- 镜像构建要拉 `pb2025_sentry_nav` 与 Livox-SDK2，耗时远超 CI 合理预算。
+
+**欠账**：`gate-selftest`（向仓库注入已知缺陷，证明每道门禁真的会红）尚未做。
+localization 的 D15/D18 已经证明「恒跳过的门禁」是本组织最真实的失败模式，
+本仓下一轮补上，届时同步更新 `decision.md` 与 ci.yml 的作业集合。
+
+**实证（A2 整链门对宿主状态敏感）**：把 A2 判据固化成门脚本（清理 → 起 launch → 70 s 采样 → 判据）
+之后，2026-10-30 连跑两次出现过一次误判：第二次输出
+`samples=3451 first_ok_delay=5.01 s max_xy_err=2.261 max_yaw=4.220 last_state=3 lost=True -> FAIL`。
+诊断：上一轮 launch 的 `ign_sim_pointcloud_tool` 进程没被清掉，容器内同时有两个实例在转点云，
+叠加宿主 `loadavg 14.6`（12 核）⇒ 帧率塌陷触发 LOST。`docker restart` 清空后同一套用例
+`8 passed`。所以**整链门只当本地人工回归用，判红前先确认容器内没有残留 gz/ign 进程**；
+这也是它不进 CI 的又一条理由（runner 上无法保证这种干净度）。

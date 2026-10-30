@@ -45,9 +45,15 @@ def check_world(root):
     """世界文件：Fortress 插件前缀 + 单一场地模型 + 无上游占位机器人。"""
     world = root.find("world")
     assert world is not None, "world 元素缺失"
-    assert world.get("name") == "rmul_2027", f"世界名应为 rmul_2027，实际 {world.get('name')}"
+    assert (
+        world.get("name") == "rmul_2027"
+    ), f"世界名应为 rmul_2027，实际 {world.get('name')}"
 
-    plugins = [p for p in world.findall("plugin") if p.get("filename", "").startswith("ignition-gazebo-")]
+    plugins = [
+        p
+        for p in world.findall("plugin")
+        if p.get("filename", "").startswith("ignition-gazebo-")
+    ]
     names = {p.get("filename") for p in plugins}
     expected = {
         "ignition-gazebo-physics-system",
@@ -60,12 +66,18 @@ def check_world(root):
 
     imu = [p for p in plugins if p.get("filename") == "ignition-gazebo-imu-system"]
     assert imu, "世界必须加载 imu-system，否则 gpu_lidar 正常但 IMU 话题不会出现"
-    sensors = [p for p in plugins if p.get("filename") == "ignition-gazebo-sensors-system"]
-    assert sensors[0].findtext("render_engine") == "ogre2", "Sensors 插件必须显式指定 ogre2 渲染引擎"
+    sensors = [
+        p for p in plugins if p.get("filename") == "ignition-gazebo-sensors-system"
+    ]
+    assert (
+        sensors[0].findtext("render_engine") == "ogre2"
+    ), "Sensors 插件必须显式指定 ogre2 渲染引擎"
 
     text = ET.tostring(world, encoding="unicode")
     assert "gz-sim-" not in text, "世界文件仍含 Harmonic 插件前缀 gz-sim-"
-    assert "guodong_sentry" not in text, "世界文件仍引用上游占位机器人 model://guodong_sentry"
+    assert (
+        "guodong_sentry" not in text
+    ), "世界文件仍引用上游占位机器人 model://guodong_sentry"
 
     uris = [i.findtext("uri") for i in world.findall("include")]
     assert uris == ["model://rmul_2027"], f"include 应只有场地模型，实际 {uris}"
@@ -82,23 +94,35 @@ def check_map(maps_dir):
 
     assert fields["image"] == "rmul_2027.pgm", f"image 字段异常：{fields['image']}"
     assert fields["mode"] == "trinary", f"mode 字段异常：{fields['mode']}"
-    assert float(fields["resolution"]) == MAP_RESOLUTION, f"分辨率异常：{fields['resolution']}"
+    assert (
+        float(fields["resolution"]) == MAP_RESOLUTION
+    ), f"分辨率异常：{fields['resolution']}"
     origin = json.loads(fields["origin"].replace(" ", ""))
     assert tuple(origin[:2]) == MAP_ORIGIN, f"原点异常：{origin}"
 
     width, height = read_pgm_size(maps_dir / fields["image"])
     meters = (width * MAP_RESOLUTION, height * MAP_RESOLUTION)
     for got, want, label in zip(meters, EXPECTED_MAP_METERS, ("宽", "高")):
-        assert abs(got - want) < TOLERANCE, f"地图{label}度 {got:.2f} m 与场地外廓 {want:.2f} m 不符"
+        assert (
+            abs(got - want) < TOLERANCE
+        ), f"地图{label}度 {got:.2f} m 与场地外廓 {want:.2f} m 不符"
 
     parameters = json.loads((maps_dir / "parameters.json").read_text(encoding="utf-8"))
     verified = parameters["step_verified"]
     assert tuple(verified["inner_field_size"]) == INNER_FIELD, "内场尺寸与手册不符"
-    assert verified["perimeter_thickness"] == PERIMETER_THICKNESS, "围挡厚度与 STEP 复核值不符"
-    assert verified["perimeter_height"] == PERIMETER_HEIGHT, "围挡高度与 STEP 复核值不符"
-    assert abs(verified["tunnel_geometric_clearance"] - TUNNEL_CLEARANCE) < 1e-6, "隧道净空与复核值不符"
+    assert (
+        verified["perimeter_thickness"] == PERIMETER_THICKNESS
+    ), "围挡厚度与 STEP 复核值不符"
+    assert (
+        verified["perimeter_height"] == PERIMETER_HEIGHT
+    ), "围挡高度与 STEP 复核值不符"
+    assert (
+        abs(verified["tunnel_geometric_clearance"] - TUNNEL_CLEARANCE) < 1e-6
+    ), "隧道净空与复核值不符"
     effective = parameters["effective_simulation"]
-    assert effective["map_resolution"] == MAP_RESOLUTION, "parameters.json 的分辨率与 yaml 不一致"
+    assert (
+        effective["map_resolution"] == MAP_RESOLUTION
+    ), "parameters.json 的分辨率与 yaml 不一致"
     assert effective["floor_friction_mu"] == FLOOR_FRICTION_MU, "地面摩擦系数与模型不符"
 
 
@@ -112,16 +136,22 @@ def check_model(models_dir):
     assert uris, "模型没有引用任何网格"
     for uri in uris:
         assert uri.startswith("model://rmul_2027/"), f"网格 URI 不在本模型内：{uri}"
-        relative = uri[len("model://rmul_2027/"):]
-        assert (models_dir / "rmul_2027" / relative).is_file(), f"网格文件缺失：{relative}"
+        relative = uri[len("model://rmul_2027/") :]
+        assert (
+            models_dir / "rmul_2027" / relative
+        ).is_file(), f"网格文件缺失：{relative}"
 
     mu = model.findtext(".//friction/ode/mu")
-    assert mu is not None and abs(float(mu) - FLOOR_FRICTION_MU) < 1e-9, "摩擦系数与 parameters.json 不一致"
+    assert (
+        mu is not None and abs(float(mu) - FLOOR_FRICTION_MU) < 1e-9
+    ), "摩擦系数与 parameters.json 不一致"
 
     config = ET.parse(models_dir / "rmul_2027" / "model.config").getroot()
     assert config.findtext("name"), "model.config 缺少 name"
     sdf_ref = config.find("sdf")
-    assert (models_dir / "rmul_2027" / sdf_ref.text).is_file(), "model.config 指向的 sdf 不存在"
+    assert (
+        models_dir / "rmul_2027" / sdf_ref.text
+    ).is_file(), "model.config 指向的 sdf 不存在"
 
 
 def main():
@@ -129,7 +159,9 @@ def main():
     check_world(ET.parse(package_dir / "worlds" / "rmul_2027.sdf").getroot())
     check_map(package_dir / "maps" / "rmul_2027")
     check_model(package_dir / "models")
-    print("PASS: RMUL 2027 场地资源一致（世界插件前缀 / 地图几何 / 网格引用 / STEP 复核值）")
+    print(
+        "PASS: RMUL 2027 场地资源一致（世界插件前缀 / 地图几何 / 网格引用 / STEP 复核值）"
+    )
 
 
 if __name__ == "__main__":

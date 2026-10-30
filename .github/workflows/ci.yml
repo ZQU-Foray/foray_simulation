@@ -1,0 +1,251 @@
+# 复制自组织 CI 模板：ZQU-Foray/.github → workflows/ci-template.yml
+# 本仓已按实际技术栈裁剪：只保留**真实执行**的作业，不保留恒跳过的空壳。
+#
+# 作业集合：
+#   dir-layout      目录与包命名规范（仓根不平铺包、包名=目录名、非 bringup 包须有 test/）
+#   file-hygiene    文件卫生（LF / UTF-8 / 末尾单空行 / 无行尾空白）
+#   doc-sync        tree.md 与实际跟踪文件双向一致
+#   layer-check     .foray-layer 依赖方向自洽（foray_docs §6.5）
+#   lint-python     Python 语法/格式（ruff + black）
+#   lint-c          C/C++ 格式（本仓当前无 C/C++，作业自动跳过）
+#   build-ros2      colcon 构建 + ros2 pkg executables + launch 解析 + colcon test
+#
+# 与 foray_localization 的差异（按本仓实际形态裁剪，不照抄）：
+#   - 无 param-contract / contract-lock：本仓不发布 msg/srv/action，参数清单
+#     在 README §4，由 doc-sync 与人工 Review 守；不是本仓的接口契约面。
+#   - 无 gate-selftest：门禁自检需要注入缺陷的沙箱，本仓先立门禁；
+#     自检脚本留待下一轮（decision.md D14 记了这条欠账）。
+#   - dir-layout 不要求 include/：本仓两个包都是纯资源/装配包（project(... NONE)），
+#     手写 C++ 一旦进入本仓，规则要随之收紧。
+#   - field 包内有 tools/（上游 STEP 生成与审计脚本，只读参考、不被安装），
+#     因此不套用 localization 的「包内禁止 tools/」规则。
+#
+# 设计原则沿用组织模板：**空仓库必须绿灯**。每个作业先探测适用文件是否存在，
+# 不存在就跳过 —— 长期红灯的 CI 等于没有 CI。
+
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  # ---- 目录与包命名规范 ----
+  # 仓根 = colcon 空间根，全部包在 src/ 下；包名必须等于目录名。
+  # *_bringup 是装配包，允许没有 test/（它的验收在整链仿真里）。
+  dir-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验目录规范
+        shell: bash
+        run: |
+          fail=0
+
+          # 1) 仓根不得平铺 ROS 包
+          for pkg in */package.xml; do
+            [ -e "$pkg" ] || continue
+            echo "::error::$(dirname "$pkg") 是包但不在 src/ 下"
+            fail=1
+          done
+
+          # 2) src/ 下必须都有 package.xml，包名与目录名一致
+          for dir in src/*/; do
+            [ -d "$dir" ] || continue
+            name="${dir%/}"; name="${name##*/}"
+            if [ ! -f "$dir/package.xml" ]; then
+              echo "::error::$dir 缺少 package.xml"
+              fail=1
+              continue
+            fi
+            declared="$(sed -n 's:.*<name>[[:space:]]*\([^<]*\)[[:space:]]*</name>.*:\1:p' "$dir/package.xml" | head -1)"
+            if [ "$declared" != "$name" ]; then
+              echo "::error::$dir 的包名「$declared」与目录名「$name」不一致"
+              fail=1
+            fi
+            case "$name" in
+              *_bringup) ;;
+              *)
+                [ -d "$dir/test" ] || { echo "::error::$dir 缺少 test/"; fail=1; }
+                ;;
+            esac
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "目录规范校验失败，规则见 tree.md「职责边界」与 foray_docs §6.1"
+            exit 1
+          fi
+          echo "目录规范校验通过"
+
+  # ---- 文件卫生 ----
+  # AGENTS.md「必须」里可机械判定的部分：LF · UTF-8 · 文件末尾一个空行 · 无行尾空白。
+  # 缩进不在这里查：C/C++ 归 clang-format（lint-c），Python 归 ruff/black（lint-python）。
+  file-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验文件卫生
+        run: python3 scripts/ci/check_style.py
+
+  # ---- tree.md 与实际跟踪文件双向一致 ----
+  # 文档最常见的腐坏不是写错，而是「没跟上」：新增文件、删除目录，tree.md 悄悄过期。
+  # 过期的结构说明比没有更危险——它会让下一个人照着错误的地图动手。
+  doc-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验 tree.md 与仓库双向一致
+        run: python3 scripts/ci/check_tree_doc.py
+
+  # ---- 依赖方向 ----
+  # foray_docs §6.5 要求每仓在仓根声明层级，且不得反向依赖。
+  # 单仓只能校验声明自洽；跨仓的「不得依赖装配根」由元仓集成 CI 负责。
+  layer-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验 .foray-layer
+        run: python3 scripts/ci/check_layer.py
+
+  # ---- Python 代码检查 ----
+  # 本仓 Python 只有 bringup 的 launch / scripts 与 field 的 tools / test，
+  # 按 pyproject.toml 的 3.10 目标检查（与 ROS 2 humble 一致）。
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 检测是否存在 Python 代码
+        id: detect
+        shell: bash
+        run: |
+          if find . -name '*.py' -not -path './.git/*' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "未发现 Python 代码，跳过。"
+          fi
+
+      - name: Set up Python
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        if: steps.detect.outputs.found == 'true'
+        run: |
+          pip install ruff black
+
+      - name: Lint with ruff
+        if: steps.detect.outputs.found == 'true'
+        run: ruff check .
+
+      - name: Format check with black
+        if: steps.detect.outputs.found == 'true'
+        run: black --check --diff .
+
+  # ---- C/C++ 格式检查 ----
+  # 本仓当前没有 C/C++ 源码，作业会走「未发现代码，跳过」分支；
+  # 保留它是因为 tree.md 已声明 .clang-format 存在，将来加手写节点时门禁必须立刻生效。
+  lint-c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 检测是否存在 C/C++ 代码
+        id: detect
+        shell: bash
+        run: |
+          if find . \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) \
+               -not -path './.git/*' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "未发现 C/C++ 代码，跳过。"
+          fi
+
+      - name: Install clang-format
+        if: steps.detect.outputs.found == 'true'
+        run: sudo apt-get install -y clang-format
+
+      - name: Format check
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          find . \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) \
+            -not -path './.git/*' -not -path '*/generated/*' -print0 | \
+            xargs -0 -r clang-format --dry-run --Werror
+
+  # ---- ROS 2 构建与测试 ----
+  # 本仓的运行时依赖里有多个只存在于容器镜像内的上游包（point_lio、
+  # ign_sim_pointcloud_tool、foray_localization_ros 等），apt/rosdep 拿不到；
+  # 它们是 exec_depend，rosdep 用 -r 跳过即可，不影响本仓两个包的 colcon 构建。
+  # 整链仿真验证（A0–A7）不在 CI 里跑：软件渲染的 Gazebo 在 runner 上不稳定，
+  # 由 docker/ 镜像 + 本地容器回归承担（见 plan.md 的验收章节）。
+  build-ros2:
+    runs-on: ubuntu-22.04
+    container: ros:humble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 检测是否为 ROS 2 仓库
+        id: detect
+        shell: bash
+        run: |
+          if find . -name package.xml -not -path './.git/*' | grep -q .; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "未发现 ROS 2 package，跳过 ROS 2 构建。"
+          fi
+
+      - name: 安装依赖 (rosdep)
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y python3-numpy
+          rosdep update
+          # -r：忽略 rosdep 数据库里没有的 key（本仓的容器内上游包属于此类）
+          rosdep install -y -r --from-paths . --ignore-src --rosdistro humble
+
+      - name: 构建 (colcon build)
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+      - name: 校验安装与 launch 解析
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          # 脚本必须按 PROGRAMS 装进 lib/<pkg>/，否则 launch 会报
+          # "executable ... not found on the libexec directory"
+          ros2 pkg executables foray_simulation_bringup | tee /tmp/exes.txt
+          for exe in make_pcd.py make_manifest.py set_initial_pose.py sim_up.sh; do
+            grep -qx "foray_simulation_bringup $exe" /tmp/exes.txt \
+              || { echo "::error::ros2 pkg executables 缺少 $exe"; exit 1; }
+          done
+          # launch 文件必须能被解析（--show-args 不启动任何进程）
+          for launch_file in simulation.launch.py localization_sim.launch.py; do
+            ros2 launch foray_simulation_bringup "$launch_file" --show-args
+          done
+
+      - name: 测试 (colcon test)
+        if: steps.detect.outputs.found == 'true'
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose

@@ -1,0 +1,8 @@
+# 工具配置。目标 Python 版本与 CI / ROS 2 humble 保持一致（3.10），
+# 避免 ruff 的自动修复引入 3.11+ 才有的写法（例如把 datetime.timezone.utc
+# 改成 datetime.UTC，运行时在 3.10 上会 AttributeError）。
+#
+# 本仓 Python 只有 bringup 的 launch / scripts 与 field 的 tools / test，
+# 没有需要打包的 Python 分发包，故只配置检查器，不配置 build-system。
+[tool.ruff]
+target-version = "py310"

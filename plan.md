@@ -5,8 +5,9 @@
 
 ## 当前断点（2026-10-30）
 
-**I1–I6 完成（A2 已在仿真里取证通过），I7–I8 未做。**
+**I1–I6、I9 完成（A2 已在仿真里取证通过、仓级门禁已接入），I7–I8 未做。**
 I6 的三处根因与取证见 `decision.md` D11/D12/D13；D9 的「回调从未被调用」已更正。
+I9（组织规则同步）的取舍与代价见 D14/D15。
 
 ## M1 场地资产（A0 / A5 的一半）
 
@@ -55,6 +56,11 @@ I6 的三处根因与取证见 `decision.md` D11/D12/D13；D9 的「回调从未
 - [ ] **I7**：`config/nav2_params_sim.yaml` + `launch/navigation_sim.launch.py` + 把
       `scripts/sim_up.sh` 扩成「仿真 + 定位 + Nav2」一键；验收：Nav2 穿过隧道 `SUCCEEDED`、
       `sim_up.sh` 300 s 内起整链（A3 / A6）。
+- [x] **I9 组织规则同步（D14/D15）**：补齐 `CODEOWNERS`、`.clang-format`、`pyproject.toml`、
+      `.github/workflows/ci.yml` 与 `scripts/ci/{check_style,check_tree_doc,check_layer}.py`；
+      现有 14 个 `.py` 通过 ruff+black，导出素材行尾统一 LF；`tree.md` 重写为逐文件镜像
+      （91 文件 / 30 目录）。回执：三条门禁全绿、`ruff check` 0 问题、`black --check` 0 待改。
+      欠账：`gate-selftest` 未做（见 D15）；`foray_docs` 的仓表与 scope 词表尚未收录本仓。
 - [ ] **I8**：跨仓收尾——`foray_ws/.repos` 增 `foray_simulation`，`foray_docs`
       §6.6 加 scope 词表、`repository_structure.md` 补仓列表，`foray_localization/decision.md`
       的 D17 一并提交。
@@ -65,9 +71,10 @@ I6 的三处根因与取证见 `decision.md` D11/D12/D13；D9 的「回调从未
   Gazebo 沉降（D12）、健康时限贴着阈值抖动（D13），与 D9 推测的 executor/回调问题无关。
 - **环境依赖提醒**：软件渲染下点云帧率随宿主机负载从 7 Hz 掉到 4 Hz，D13 的时限是按
   实测最坏帧间隔（p99 1.01 s、最长 1.60 s）留的余量；若换到更快的机器可再收紧。
-- 新仓当前落在 `foray_localization/local/staging/foray_simulation`（`local/` 已 gitignore，
-  嵌套 git 仓安全）。**迁到 `../foray_simulation` 需要一次 danger-full-access 审批**；
-  迁移用 `git clone ./local/staging/foray_simulation ../foray_simulation` 可保留本仓历史。
+- **A2 整链门有已知脆弱点**：残留的上一轮 `ign_sim_pointcloud_tool` 进程 + 宿主高负载
+  会让它误判成 LOST（D15 有实测）。重跑前先 `ps` 确认容器干净，必要时 `docker restart`。
+- **仓已迁至 `~/Projects/RoboMaster/foray_simulation`**（2026-10-29 起为日常开发副本，
+  `remote` 用 https + gh CLI 凭据；`foray_localization/local/staging/` 下的旧副本不再使用）。
 
 ## 复现命令
 

@@ -44,11 +44,11 @@ def read_pcd(path):
         fields[key] = value.split()
     if fields.get("FIELDS") != ["x", "y", "z"]:
         raise SystemExit(f"{path} 字段不是 x/y/z：{fields.get('FIELDS')}")
-    body = blob[split + len(marker):]
+    body = blob[split + len(marker) :]
     count = int(fields["POINTS"][0])
     if len(body) < count * 12:
         raise SystemExit(f"{path} 数据段长度不足")
-    return list(struct.iter_unpack("<fff", body[:count * 12]))
+    return list(struct.iter_unpack("<fff", body[: count * 12]))
 
 
 def read_pgm(path):
@@ -63,7 +63,7 @@ def read_pgm(path):
     if tokens[0] != b"P5":
         raise SystemExit(f"{path} 不是 P5 PGM")
     width, height = int(tokens[1]), int(tokens[2])
-    return width, height, blob[offset:offset + width * height]
+    return width, height, blob[offset : offset + width * height]
 
 
 def project(points, radius):
@@ -86,7 +86,7 @@ def project(points, radius):
                 row = base_row + d_row
                 center_x = ORIGIN[0] + (col + 0.5) * RESOLUTION
                 center_y = ORIGIN[1] + (row + 0.5) * RESOLUTION
-                if (center_x - x) ** 2 + (center_y - y) ** 2 <= radius ** 2:
+                if (center_x - x) ** 2 + (center_y - y) ** 2 <= radius**2:
                     cells.add((col, row))
     return cells
 
@@ -113,15 +113,23 @@ def main():
     parser.add_argument("--pcd", required=True, type=pathlib.Path)
     parser.add_argument("--grid", required=True, type=pathlib.Path)
     parser.add_argument("--min-iou", type=float, default=0.90)
-    parser.add_argument("--spacing", type=float, default=0.08,
-                        help="make_pcd.py 的表面采样间隔，用于折算膨胀半径")
+    parser.add_argument(
+        "--spacing",
+        type=float,
+        default=0.08,
+        help="make_pcd.py 的表面采样间隔，用于折算膨胀半径",
+    )
     args = parser.parse_args()
 
     points = read_pcd(args.pcd.resolve())
     width, height, data = read_pgm(args.grid.resolve())
 
-    cloud = {cell for cell in project(points, args.spacing / 2) if in_outer_field(*cell)}
-    official = {cell for cell in grid_cells(width, height, data) if in_outer_field(*cell)}
+    cloud = {
+        cell for cell in project(points, args.spacing / 2) if in_outer_field(*cell)
+    }
+    official = {
+        cell for cell in grid_cells(width, height, data) if in_outer_field(*cell)
+    }
     if not official:
         raise SystemExit("官方地图在外场范围内没有占据像元，口径有误")
 
@@ -133,7 +141,9 @@ def main():
 
     print(f"点云 {len(points)} 点 → 占据栅格 {len(cloud)}（外场范围内）")
     print(f"官方地图占据栅格 {len(official)}（外场范围内）")
-    print(f"IoU={iou:.4f} 召回={recall:.4f} 精确={precision:.4f} 交集={intersection} 并集={union}")
+    print(
+        f"IoU={iou:.4f} 召回={recall:.4f} 精确={precision:.4f} 交集={intersection} 并集={union}"
+    )
     if iou < args.min_iou:
         print(f"FAIL: IoU {iou:.4f} < 门槛 {args.min_iou:.2f}", file=sys.stderr)
         return 1

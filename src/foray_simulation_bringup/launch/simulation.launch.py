@@ -48,7 +48,9 @@ def gz_bridge_arguments(share_dir):
         direction = entry.get("direction", "gz2ros")
         separator = {"gz2ros": "[", "ros2gz": "]"}.get(direction)
         if separator is None:
-            raise ValueError(f"bridge.yaml 里的 direction 只能是 gz2ros/ros2gz：{entry}")
+            raise ValueError(
+                f"bridge.yaml 里的 direction 只能是 gz2ros/ros2gz：{entry}"
+            )
         arguments.append(
             f"{entry['gz_topic']}@{entry['ros_type']}{separator}{entry['gz_type']}"
         )
@@ -108,13 +110,20 @@ def generate_launch_description():
         package="ros_gz_sim",
         executable="create",
         arguments=[
-            "-world", WORLD_NAME,
-            "-file", robot_sdf,
-            "-name", ROBOT_NAME,
-            "-x", robot_x,
-            "-y", robot_y,
-            "-z", "0.02",
-            "-Y", robot_yaw,
+            "-world",
+            WORLD_NAME,
+            "-file",
+            robot_sdf,
+            "-name",
+            ROBOT_NAME,
+            "-x",
+            robot_x,
+            "-y",
+            robot_y,
+            "-z",
+            "0.02",
+            "-Y",
+            robot_yaw,
         ],
         output="screen",
     )
@@ -145,22 +154,41 @@ def generate_launch_description():
         output="screen",
     )
 
-    return LaunchDescription([
-        DeclareLaunchArgument("gui", default_value="false", description="开 Gazebo GUI"),
-        DeclareLaunchArgument("headless", default_value="true",
-                              description="无界面跑物理与传感器（服务器默认）"),
-        DeclareLaunchArgument("rviz", default_value="false", description="开 RViz"),
-        DeclareLaunchArgument("x", default_value="0.0", description="初始 x（场地坐标）"),
-        DeclareLaunchArgument("y", default_value="0.0", description="初始 y（场地坐标）"),
-        DeclareLaunchArgument("yaw", default_value="0.0", description="初始朝向（rad）"),
-        # 只跑无界面渲染时才需要软件 GL；有 GPU 时设 LIBGL_ALWAYS_SOFTWARE=0
-        SetEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE", os.environ.get("LIBGL_ALWAYS_SOFTWARE", "1")),
-        AppendEnvironmentVariable("IGN_GAZEBO_RESOURCE_PATH", os.path.join(field_share, "models")),
-        AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.join(field_share, "models")),
-        gz_sim,
-        gz_sim_headless,
-        spawn_robot,
-        bridge,
-        robot_state_publisher,
-        rviz_node,
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument(
+                "gui", default_value="false", description="开 Gazebo GUI"
+            ),
+            DeclareLaunchArgument(
+                "headless",
+                default_value="true",
+                description="无界面跑物理与传感器（服务器默认）",
+            ),
+            DeclareLaunchArgument("rviz", default_value="false", description="开 RViz"),
+            DeclareLaunchArgument(
+                "x", default_value="0.0", description="初始 x（场地坐标）"
+            ),
+            DeclareLaunchArgument(
+                "y", default_value="0.0", description="初始 y（场地坐标）"
+            ),
+            DeclareLaunchArgument(
+                "yaw", default_value="0.0", description="初始朝向（rad）"
+            ),
+            # 只跑无界面渲染时才需要软件 GL；有 GPU 时设 LIBGL_ALWAYS_SOFTWARE=0
+            SetEnvironmentVariable(
+                "LIBGL_ALWAYS_SOFTWARE", os.environ.get("LIBGL_ALWAYS_SOFTWARE", "1")
+            ),
+            AppendEnvironmentVariable(
+                "IGN_GAZEBO_RESOURCE_PATH", os.path.join(field_share, "models")
+            ),
+            AppendEnvironmentVariable(
+                "GZ_SIM_RESOURCE_PATH", os.path.join(field_share, "models")
+            ),
+            gz_sim,
+            gz_sim_headless,
+            spawn_robot,
+            bridge,
+            robot_state_publisher,
+            rviz_node,
+        ]
+    )

@@ -13,8 +13,17 @@ import pathlib
 import sys
 
 REQUIRED_KEYS = (
-    "version", "frame_id", "origin", "width", "height",
-    "pcd_file", "grid_file", "created_at", "resolution", "pcd_sha256", "grid_sha256",
+    "version",
+    "frame_id",
+    "origin",
+    "width",
+    "height",
+    "pcd_file",
+    "grid_file",
+    "created_at",
+    "resolution",
+    "pcd_sha256",
+    "grid_sha256",
 )
 # manifest.cpp: 相对路径、不含 `..`、必须是同类 sha256 十六进制。
 MAX_RESOLUTION = 1.0
@@ -52,10 +61,14 @@ def check_manifest(map_dir):
     missing = [key for key in REQUIRED_KEYS if key not in fields]
     assert not missing, f"manifest 缺少必填键：{missing}"
 
-    assert fields["frame_id"] == "map", f"frame_id 必须是 map，实际 {fields['frame_id']}"
+    assert (
+        fields["frame_id"] == "map"
+    ), f"frame_id 必须是 map，实际 {fields['frame_id']}"
 
     resolution = float(fields["resolution"])
-    assert 0.0 < resolution <= MAX_RESOLUTION, f"resolution 必须落在 (0, {MAX_RESOLUTION}]"
+    assert (
+        0.0 < resolution <= MAX_RESOLUTION
+    ), f"resolution 必须落在 (0, {MAX_RESOLUTION}]"
 
     for key in ("pcd_file", "grid_file"):
         value = fields[key]
@@ -64,15 +77,17 @@ def check_manifest(map_dir):
 
     for key in ("pcd_sha256", "grid_sha256"):
         value = fields[key]
-        assert len(value) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in value), \
-            f"{key} 不是 64 位十六进制"
+        assert len(value) == 64 and all(
+            ch in "0123456789abcdefABCDEF" for ch in value
+        ), f"{key} 不是 64 位十六进制"
 
     origin = fields["origin"].strip("[]").replace(",", " ").split()
     assert len(origin) == 3, f"origin 必须是 3 个数值：{fields['origin']}"
 
     width, height = read_pgm_size(map_dir / fields["grid_file"])
-    assert int(fields["width"]) == width and int(fields["height"]) == height, \
-        f"manifest 尺寸 {fields['width']}x{fields['height']} 与栅格 {width}x{height} 不一致"
+    assert (
+        int(fields["width"]) == width and int(fields["height"]) == height
+    ), f"manifest 尺寸 {fields['width']}x{fields['height']} 与栅格 {width}x{height} 不一致"
 
     return fields
 
@@ -83,8 +98,9 @@ def check_tamper_detection(map_dir, fields):
     original = grid.read_bytes()
     tampered = bytearray(original)
     tampered[-1] ^= 0xFF
-    assert sha256_file_bytes(bytes(tampered)) != fields["grid_sha256"], \
-        "篡改 1 字节后哈希仍然相同，校验失去意义"
+    assert (
+        sha256_file_bytes(bytes(tampered)) != fields["grid_sha256"]
+    ), "篡改 1 字节后哈希仍然相同，校验失去意义"
     assert sha256_file_bytes(original) == fields["grid_sha256"], "原件哈希与清单不符"
 
 
@@ -94,11 +110,15 @@ def sha256_file_bytes(blob):
 
 
 def main():
-    map_dir = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "map/rmul_2027").resolve()
+    map_dir = pathlib.Path(
+        sys.argv[1] if len(sys.argv) > 1 else "map/rmul_2027"
+    ).resolve()
     fields = check_manifest(map_dir)
     check_tamper_detection(map_dir, fields)
-    print(f"PASS: manifest 自洽（{fields['width']}x{fields['height']} @ {fields['resolution']} m，"
-          f"frame_id={fields['frame_id']}，哈希与篡改检测有效）")
+    print(
+        f"PASS: manifest 自洽（{fields['width']}x{fields['height']} @ {fields['resolution']} m，"
+        f"frame_id={fields['frame_id']}，哈希与篡改检测有效）"
+    )
 
 
 if __name__ == "__main__":
