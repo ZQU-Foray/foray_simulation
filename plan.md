@@ -3,11 +3,10 @@
 > 状态：`[x]` 已完成并有可追溯回执 · `[~]` 进行中 · `[ ]` 未开始。
 > 任意时刻中断后从这里恢复。
 
-## 当前断点（2026-10-27）
+## 当前断点（2026-10-30）
 
-**I1–I5 完成，I6 因上游 `point_lio` 在本仿真里收不到数据而暂停，I6–I8 未做。**
-决策与证据见 `decision.md` D9 与 `foray_localization/local/evidence-sim/`
-（后者在 `foray_localization` 的 `.gitignore` 范围内，随那个仓归档）。
+**I1–I6 完成（A2 已在仿真里取证通过），I7–I8 未做。**
+I6 的三处根因与取证见 `decision.md` D11/D12/D13；D9 的「回调从未被调用」已更正。
 
 ## M1 场地资产（A0 / A5 的一半）
 
@@ -46,12 +45,13 @@
 
 ## M4 定位 / 寻路 / 一键（A2 / A3 / A6）
 
-- [ ] **I6 定位链路**（**阻塞**，见 D9）：`config/point_lio_sim.yaml`、
-      `launch/localization_sim.launch.py`、`scripts/set_initial_pose.py` 已写好；
-      静态 TF、地图加载（`先验地图已加载: version=1.0.0 pcd=4137 grid=512x352`）、
-      `/localization/state` 发布均实测通。**卡点**：`point_lio` 的回调不触发，
-      `/aft_mapped_to_init` 无输出，`foray_localization` 拿不到先验运动、`pose_valid=false`。
-      解掉这一点后 A2 才能取证（10 s 内状态 OK、误差 < 0.30 m / < 5°）。
+- [x] **I6 定位链路**（A2，见 D11/D12/D13）：`config/point_lio_sim.yaml`、
+      `launch/localization_sim.launch.py`、`scripts/set_initial_pose.py` 打通。
+      三处修复：`ang_bottom` 传 `7.0`（D11）、`point_lio` 用 `TimerAction` 延后 4 s 启动（D12）、
+      仿真侧健康时限放宽为 `odom 2.0 / lidar 2.5 / lost 5.0`（D13）；另修 4 个脚本的可执行位。
+      回执：默认参数 95 s 采样 4737 条状态 ⇒ `{INITIALIZING: 314, OK: 4423}`、零 DEGRADED/LOST；
+      首次 OK 在仿真 3.78 s，位姿 `(6.0606, 4.0425)`，与真值 `(6.0, 4.0, 0.011)` 相差
+      **0.083 m**，`yaw=0.012°`；`/aft_mapped_to_init` 7.1 Hz、静止漂移毫米级。
 - [ ] **I7**：`config/nav2_params_sim.yaml` + `launch/navigation_sim.launch.py` + 把
       `scripts/sim_up.sh` 扩成「仿真 + 定位 + Nav2」一键；验收：Nav2 穿过隧道 `SUCCEEDED`、
       `sim_up.sh` 300 s 内起整链（A3 / A6）。
@@ -61,10 +61,10 @@
 
 ## 阻塞与待确认
 
-- **I6 阻塞：`point_lio` 回调不触发**。已排除：节点名未 remap（会直接 segfault）、
-  参数未生效、点云含 `inf`、`ros2 run` 与 `launch` 的差异、
-  `MultiThreadedExecutor::spin_some` 与专用 spin 线程。`ros2 topic info` 显示它确实是订阅者、
-  QoS 匹配，同一份数据别的节点能收到。下一步按 `decision.md` D9 的三条路线之一继续。
+- **I6 已解除阻塞**（2026-10-30）：根因是 `ang_bottom` 符号（D11）、`point_lio` 起步撞上
+  Gazebo 沉降（D12）、健康时限贴着阈值抖动（D13），与 D9 推测的 executor/回调问题无关。
+- **环境依赖提醒**：软件渲染下点云帧率随宿主机负载从 7 Hz 掉到 4 Hz，D13 的时限是按
+  实测最坏帧间隔（p99 1.01 s、最长 1.60 s）留的余量；若换到更快的机器可再收紧。
 - 新仓当前落在 `foray_localization/local/staging/foray_simulation`（`local/` 已 gitignore，
   嵌套 git 仓安全）。**迁到 `../foray_simulation` 需要一次 danger-full-access 审批**；
   迁移用 `git clone ./local/staging/foray_simulation ../foray_simulation` 可保留本仓历史。
