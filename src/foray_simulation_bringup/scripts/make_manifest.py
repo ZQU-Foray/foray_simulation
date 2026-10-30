@@ -61,11 +61,21 @@ def read_pgm_size(path):
 
 def main():
     parser = argparse.ArgumentParser(description="生成地图清单 manifest.yaml")
-    parser.add_argument("--map-dir", required=True, type=pathlib.Path,
-                        help="同时存放 pcd / pgm / yaml 的目录")
-    parser.add_argument("--out", required=True, type=pathlib.Path, help="输出 manifest.yaml")
-    parser.add_argument("--pcd", default="rmul_2027.pcd", help="地图目录内的 PCD 文件名")
-    parser.add_argument("--map-yaml", default="rmul_2027.yaml", help="地图目录内的 nav2 地图文件名")
+    parser.add_argument(
+        "--map-dir",
+        required=True,
+        type=pathlib.Path,
+        help="同时存放 pcd / pgm / yaml 的目录",
+    )
+    parser.add_argument(
+        "--out", required=True, type=pathlib.Path, help="输出 manifest.yaml"
+    )
+    parser.add_argument(
+        "--pcd", default="rmul_2027.pcd", help="地图目录内的 PCD 文件名"
+    )
+    parser.add_argument(
+        "--map-yaml", default="rmul_2027.yaml", help="地图目录内的 nav2 地图文件名"
+    )
     parser.add_argument("--version", default=DEFAULT_VERSION)
     parser.add_argument("--created-at", default=DEFAULT_CREATED_AT)
     parser.add_argument("--source", default=DEFAULT_SOURCE)
@@ -103,7 +113,9 @@ def main():
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"写出 {out}")
     print(f"栅格 {width}x{height} @ {resolution} m，原点 {origin}")
-    print(f"pcd {pcd.name} {pcd.stat().st_size} 字节，栅格 {grid.name} {grid.stat().st_size} 字节")
+    print(
+        f"pcd {pcd.name} {pcd.stat().st_size} 字节，栅格 {grid.name} {grid.stat().st_size} 字节"
+    )
 
 
 if __name__ == "__main__":

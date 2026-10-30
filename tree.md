@@ -2,39 +2,133 @@
 
 仓根即 colcon 空间根，包一律在 `src/` 下。
 
+> 本文件与仓库**双向一致**，由 `scripts/ci/check_tree_doc.py` 在 CI 的 `doc-sync` 作业里强制校验：
+> 这里列出的每个文件必须真实存在，每个被跟踪文件也必须在这里出现。
+> 新增 / 删除 / 重命名文件的提交，必须在同一次提交内更新本文件。
+
 ```
 foray_simulation/
-├── README.md                     # 本仓唯一需求来源
-├── AGENTS.md                     # AI / 协作者规范
-├── THIRD_PARTY_NOTICES.md        # 三方来源与许可证归属链
-├── tree.md  plan.md  decision.md # 结构 / 计划 / 决策
-├── .foray-layer                  # 层级声明（META）
-├── .gitignore  .clang-format  .github/
+├── README.md                                  # 本仓唯一需求来源（A0–A7 验收表）
+├── AGENTS.md                                  # AI / 协作者规范（组织统一版）
+├── THIRD_PARTY_NOTICES.md                     # 三方来源与许可证归属链
+├── tree.md                                    # 本文件：目录结构与职责
+├── plan.md                                    # 当前计划与进度（可中断恢复）
+├── decision.md                                # 关键工程决策与取证留痕
+├── CODEOWNERS                                 # Review 自动分派（§7.3 要求每仓自带）
+├── .foray-layer                               # 层级声明（META）
+├── .clang-format                              # C/C++ 风格，与 platform/interfaces 同一份
+├── .gitignore                                 # 构建产物、运行期产物、.dsh 状态
+├── pyproject.toml                             # ruff 目标版本 3.10（与 humble 对齐）
+├── .github/
+│   └── workflows/
+│       └── ci.yml                             # 组织 CI 模板裁剪版：7 个作业
+├── docker/
+│   └── Dockerfile                             # 全链镜像：humble + Fortress + 上游 pin
+├── scripts/
+│   └── ci/
+│       ├── check_style.py                     # 文件卫生门禁：LF / UTF-8 / 末尾单空行
+│       ├── check_tree_doc.py                  # tree.md 与 git ls-files 双向一致
+│       └── check_layer.py                     # .foray-layer 层级声明自洽（§6.5）
 └── src/
-    ├── foray_rmul_2027_field/            # 场地资源包（纯资产，无运行时节点）
-    │   ├── package.xml                   #   ament_cmake，exec_depend ros_ign_gazebo
-    │   ├── CMakeLists.txt                #   安装 models/worlds/maps/docs/previews
-    │   ├── models/rmul_2027/             #   model.config + model.sdf + meshes/ + materials/
-    │   ├── worlds/rmul_2027.sdf          #   唯一交付的世界（Fortress 口径）
-    │   ├── maps/rmul_2027/               #   官方 PGM + nav2 YAML + STEP 复核参数
-    │   ├── docs/                         #   场地规格、STEP 审计报告、机器校验记录
-    │   ├── previews/                     #   场地预览图（文档用，不参与运行）
-    │   ├── tools/                        #   上游生成/审计脚本（只读参考，不安装）
-    │   └── test/test_field_assets.py     #   资源断言：插件前缀、地图几何、网格可解析
-    └── foray_simulation_bringup/         # 启动层：把仿真器接到本仓算法上
-        ├── package.xml                   #   ament_cmake
-        ├── CMakeLists.txt
-        ├── launch/                       #   世界 / 机器人 / 定位 / 寻路 的 launch
-        ├── config/                       #   桥接配置、Nav2 参数、世界-机器人位姿表
-        ├── rviz/                         #   仿真用 RViz 视图
-        ├── map/rmul_2027/                #   定位侧输入：PCD + PGM + manifest.yaml
+    ├── foray_rmul_2027_field/                 # 场地资源包（纯资产，无运行时节点）
+    │   ├── package.xml                        #   ament_cmake，exec_depend ros_ign_gazebo
+    │   ├── CMakeLists.txt                     #   安装 models/worlds/maps/docs/previews
+    │   ├── docs/
+    │   │   ├── RMUL_2027.md                   #   场地规格：区域 / 尺寸 / 材质口径
+    │   │   └── validation/
+    │   │       └── source_machine.json        #   STEP 复核：源机位姿与相机内参记录
+    │   ├── maps/
+    │   │   └── rmul_2027/
+    │   │       ├── rmul_2027.pgm              #   官方场地栅格（占据图母本）
+    │   │       ├── rmul_2027.yaml             #   栅格元数据：分辨率 / 原点
+    │   │       ├── parameters.json            #   STEP 复核参数
+    │   │       ├── scenario.json              #   STEP 复核场景
+    │   │       ├── step_import.json           #   STEP 导入记录
+    │   │       ├── step_measurements.json     #   STEP 实测尺寸
+    │   │       ├── step_geometry.json.gz      #   复核中间几何（压缩，二进制）
+    │   │       └── geometry_overlay.png       #   栅格与几何叠合校验图
+    │   ├── models/
+    │   │   └── rmul_2027/
+    │   │       ├── model.config               #   gz 模型元数据
+    │   │       ├── model.sdf                  #   场地模型：网格引用 + 材质
+    │   │       ├── materials/
+    │   │       │   └── textures/
+    │   │       │       └── official_top.png   #   官方顶视图贴图
+    │   │       └── meshes/
+    │   │           ├── blue_highland_control_extra_pvc.dae
+    │   │           ├── blue_highland_pvc_2mm.dae
+    │   │           ├── blue_highland_wood.dae
+    │   │           ├── blue_metal_transition.dae
+    │   │           ├── blue_parapet.dae
+    │   │           ├── blue_supply_extra_pvc.dae
+    │   │           ├── blue_tunnel_far_support.dae
+    │   │           ├── blue_tunnel_gain_extra_pvc.dae
+    │   │           ├── blue_tunnel_metal_roof.dae
+    │   │           ├── blue_workbench.dae
+    │   │           ├── center_control_extra_pvc.dae
+    │   │           ├── floor_pvc_2mm.dae
+    │   │           ├── floor_wood.dae
+    │   │           ├── perimeter_east.dae
+    │   │           ├── perimeter_north.dae
+    │   │           ├── perimeter_south.dae
+    │   │           ├── perimeter_west.dae
+    │   │           ├── red_highland_control_extra_pvc.dae
+    │   │           ├── red_highland_pvc_2mm.dae
+    │   │           ├── red_highland_wood.dae
+    │   │           ├── red_metal_transition.dae
+    │   │           ├── red_parapet.dae
+    │   │           ├── red_supply_extra_pvc.dae
+    │   │           ├── red_tunnel_far_support.dae
+    │   │           ├── red_tunnel_gain_extra_pvc.dae
+    │   │           ├── red_tunnel_metal_roof.dae
+    │   │           ├── red_workbench.dae
+    │   │           ├── step_native.dae
+    │   │           └── step_textured.dae
+    │   ├── previews/
+    │   │   ├── overview_source_machine.png    #   源机渲染预览
+    │   │   ├── overview_step_native.png       #   STEP 原生几何预览
+    │   │   ├── top_source_machine.png         #   源机顶视
+    │   │   └── top_step_native.png            #   STEP 顶视
+    │   ├── tools/                             #   上游生成/审计脚本（只读参考，不安装）
+    │   │   ├── audit_rmul_step.py             #   STEP 几何审计（OCP 可选）
+    │   │   ├── check_rmul_runtime.py          #   运行时抽查：点云 / 相机 / 插件
+    │   │   ├── rmul_field.py                  #   场地几何 → SDF/DAE 生成器
+    │   │   ├── step_field.py                  #   STEP → 简化几何
+    │   │   ├── test_rmul_field.py             #   生成器自测
+    │   │   └── test_step_field.py             #   STEP 简化自测
+    │   ├── worlds/
+    │   │   └── rmul_2027.sdf                  #   唯一交付的世界（Fortress 口径）
+    │   └── test/
+    │       └── test_field_assets.py           #   资源断言：插件前缀、地图几何、网格可解析
+    └── foray_simulation_bringup/              # 启动层：把仿真器接到本仓算法上
+        ├── package.xml                        #   ament_cmake，exec_depend 上游与自研包
+        ├── CMakeLists.txt                     #   安装 launch/config/rviz/models/map + scripts
+        ├── launch/
+        │   ├── simulation.launch.py           #   世界 + 机器人 spawn + gz 桥
+        │   └── localization_sim.launch.py     #   点云转换 + point_lio + 定位服务
+        ├── config/
+        │   ├── bridge.yaml                    #   ros_gz_bridge 话题映射
+        │   ├── gui.config                     #   gz GUI 布局
+        │   └── point_lio_sim.yaml             #   point_lio 仿真参数（上游默认值）
+        ├── rviz/
+        │   └── sim.rviz                       #   仿真用 RViz 视图
+        ├── map/
+        │   └── rmul_2027/
+        │       ├── rmul_2027.pcd              #   定位先验点云（由网格采样）
+        │       ├── rmul_2027.pgm              #   定位用栅格（与官方一致）
+        │       ├── rmul_2027.yaml             #   栅格元数据
+        │       └── manifest.yaml              #   清单契约：文件 + sha256
+        ├── models/
+        │   └── foray_sim_robot/
+        │       └── model.sdf                  #   仿真机器人（底盘 + mid360 + IMU）
         ├── scripts/
-        │   ├── make_pcd.py               #   场地网格 → 先验点云（三角面格点采样）
-        │   ├── make_manifest.py          #   地图目录 → manifest.yaml（含 sha256）
-        │   └── sim_up.sh                 #   一键起整链
+        │   ├── make_pcd.py                    #   场地网格 → 先验点云（三角面格点采样）
+        │   ├── make_manifest.py               #   地图目录 → manifest.yaml（含 sha256）
+        │   ├── set_initial_pose.py            #   摆位 + 调定位 Relocalize
+        │   └── sim_up.sh                      #   一键起整链
         └── test/
-            ├── test_pcd_align.py         #   A5：点云投影 vs 官方地图 IoU
-            └── test_manifest.py          #   A4：清单契约 + 篡改检测
+            ├── test_pcd_align.py              #   A5：点云投影 vs 官方地图 IoU
+            └── test_manifest.py               #   A4：清单契约 + 篡改检测
 ```
 
 ## 职责边界
@@ -45,3 +139,16 @@ foray_simulation/
 | `foray_simulation_bringup` | 世界组装、机器人 spawn、桥接、参数、一键脚本 | 不实现定位/导航算法（那是 `foray_localization` / `foray_navigation`） |
 | `map/rmul_2027` | 定位侧先验（点云 + 栅格 + 清单） | 不做运行时修改；重新生成靠脚本 |
 | `tools/`（field 包内） | 上游资产生成与审计脚本，供追溯 | 不被安装、不被运行时依赖 |
+| `scripts/ci/` | 仓级门禁脚本，只用标准库 | 不做业务逻辑、不依赖 ROS 环境 |
+
+## 仓级规范文件
+
+本仓纳入组织规范（`foray_docs/repository_structure.md`）的文件与作业：
+
+| 项 | 位置 | 强制来源 |
+|---|---|---|
+| CODEOWNERS | 仓根 | §7.3（必须在本仓，组织 `.github` 里那份不生效） |
+| CI | `.github/workflows/ci.yml` | §6.4（复制组织模板并按技术栈裁剪） |
+| 层级声明 | `.foray-layer` | §6.5（CI `layer-check` 校验） |
+| C/C++ 风格 | `.clang-format` | §6.6 |
+| Python 风格 | `pyproject.toml`（ruff + black） | §6.6 |

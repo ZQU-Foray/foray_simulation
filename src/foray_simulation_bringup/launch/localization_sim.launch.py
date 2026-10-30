@@ -11,13 +11,10 @@
 # 定位节点用 `foray_localization_bringup` 自带的兵种参数（sentry.yaml）当基线，
 # 只覆盖仿真相关项，避免两处默认值漂移。
 
-import os
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     IncludeLaunchDescription,
     OpaqueFunction,
     TimerAction,
@@ -75,7 +72,12 @@ def generate_launch_description():
         [FindPackageShare("foray_simulation_bringup"), "config", "point_lio_sim.yaml"]
     )
     map_manifest = PathJoinSubstitution(
-        [FindPackageShare("foray_simulation_bringup"), "map", "rmul_2027", "manifest.yaml"]
+        [
+            FindPackageShare("foray_simulation_bringup"),
+            "map",
+            "rmul_2027",
+            "manifest.yaml",
+        ]
     )
     sentry_params = PathJoinSubstitution(
         [FindPackageShare("foray_localization_bringup"), "config", "sentry.yaml"]
@@ -98,9 +100,24 @@ def generate_launch_description():
         package="tf2_ros",
         executable="static_transform_publisher",
         name="front_mid360_static_tf",
-        arguments=["--frame-id", "base_footprint", "--child-frame-id", "front_mid360",
-                   "--x", LIDAR_POSE[0], "--y", LIDAR_POSE[1], "--z", LIDAR_POSE[2],
-                   "--roll", LIDAR_POSE[3], "--pitch", LIDAR_POSE[4], "--yaw", LIDAR_POSE[5]],
+        arguments=[
+            "--frame-id",
+            "base_footprint",
+            "--child-frame-id",
+            "front_mid360",
+            "--x",
+            LIDAR_POSE[0],
+            "--y",
+            LIDAR_POSE[1],
+            "--z",
+            LIDAR_POSE[2],
+            "--roll",
+            LIDAR_POSE[3],
+            "--pitch",
+            LIDAR_POSE[4],
+            "--yaw",
+            LIDAR_POSE[5],
+        ],
         parameters=[{"use_sim_time": True}],
     )
 

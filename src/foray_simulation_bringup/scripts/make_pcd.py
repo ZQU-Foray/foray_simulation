@@ -49,8 +49,10 @@ def mesh_triangles(dae_path):
     values = [float(token) for token in array.text.split()]
     if len(values) % 9:
         raise SystemExit(f"{dae_path} 的顶点数不是 3 的倍数（每三角形 3 顶点）")
-    vertices = [(values[i], values[i + 1], values[i + 2]) for i in range(0, len(values), 3)]
-    return [tuple(vertices[i:i + 3]) for i in range(0, len(vertices), 3)]
+    vertices = [
+        (values[i], values[i + 1], values[i + 2]) for i in range(0, len(values), 3)
+    ]
+    return [tuple(vertices[i : i + 3]) for i in range(0, len(vertices), 3)]
 
 
 def sample_triangle(triangle, spacing):
@@ -70,7 +72,7 @@ def sample_triangle(triangle, spacing):
 
 def voxel_key(point, voxel):
     """体素去重用的整数键。"""
-    return tuple(int(round(component / voxel)) for component in point)
+    return tuple(round(component / voxel) for component in point)
 
 
 def collect(package_dir, spacing):
@@ -104,10 +106,18 @@ def write_pcd(points, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--field-package", required=True, type=pathlib.Path,
-                        help="foray_rmul_2027_field 包目录")
-    parser.add_argument("--output", required=True, type=pathlib.Path, help="输出 .pcd 路径")
-    parser.add_argument("--spacing", type=float, default=DEFAULT_SPACING, help="表面采样间隔（米）")
+    parser.add_argument(
+        "--field-package",
+        required=True,
+        type=pathlib.Path,
+        help="foray_rmul_2027_field 包目录",
+    )
+    parser.add_argument(
+        "--output", required=True, type=pathlib.Path, help="输出 .pcd 路径"
+    )
+    parser.add_argument(
+        "--spacing", type=float, default=DEFAULT_SPACING, help="表面采样间隔（米）"
+    )
     args = parser.parse_args()
 
     points, sources = collect(args.field_package.resolve(), args.spacing)
@@ -116,8 +126,12 @@ def main():
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     zs = [p[2] for p in points]
-    print(f"源网格 {len(sources)} 个，表面采样点 {len(points)}（间隔 {args.spacing} m）")
-    print(f"范围 x[{min(xs):.3f}, {max(xs):.3f}] y[{min(ys):.3f}, {max(ys):.3f}] z[{min(zs):.3f}, {max(zs):.3f}]")
+    print(
+        f"源网格 {len(sources)} 个，表面采样点 {len(points)}（间隔 {args.spacing} m）"
+    )
+    print(
+        f"范围 x[{min(xs):.3f}, {max(xs):.3f}] y[{min(ys):.3f}, {max(ys):.3f}] z[{min(zs):.3f}, {max(zs):.3f}]"
+    )
     print(f"输出 {args.output} sha256={digest}")
 
 

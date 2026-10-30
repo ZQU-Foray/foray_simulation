@@ -11,8 +11,8 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import PoseWithCovariance, Pose
 from foray_localization_ros.srv import Relocalize
+from geometry_msgs.msg import Pose, PoseWithCovariance
 from rclpy.node import Node
 
 DEFAULT_TIMEOUT_SEC = 60.0
@@ -58,7 +58,9 @@ class InitialPoseSetter(Node):
         if not response.accepted:
             self.get_logger().error(f"重定位被拒绝：{response.message}")
             return False
-        self.get_logger().info(f"已摆位到 ({pose.position.x:.2f}, {pose.position.y:.2f})：{response.message}")
+        self.get_logger().info(
+            f"已摆位到 ({pose.position.x:.2f}, {pose.position.y:.2f})：{response.message}"
+        )
         return True
 
 
